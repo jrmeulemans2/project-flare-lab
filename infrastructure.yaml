@@ -1,0 +1,8 @@
+resources:
+  - name: stflareprod001
+    type: azurerm_storage_account
+    tier: Standard
+    replication: LRS
+  - name: cdn-flare-prod
+    type: azurerm_cdn_profile
+    sku: Standard_Microsoft
