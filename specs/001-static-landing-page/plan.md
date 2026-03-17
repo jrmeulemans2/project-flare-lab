@@ -19,11 +19,24 @@ Deliver a single static landing page for Project Flare that is low-cost, highly 
 **Project Type**: Static website (frontend-only)  
 **Performance Goals**: Page load &lt;10 s for first-time visitor (per SC-001); fast repeat loads via Front Door caching  
 **Constraints**: East US2 only; HTTPS only; no server-side runtime; low cost  
+**Security (enterprise ready)**: Edge HTTPS/TLS hardening (TLS 1.2+ + HSTS), Front Door WAF protection,
+storage origin restricted to Front Door only, and centralized logging via Diagnostic Settings to
+an Azure Log Analytics Workspace.
 **Scale/Scope**: Single landing page; moderate traffic expectations
 
 ## High-Level Architecture
 
 Static content is served from **Azure Storage (static website)** and delivered to users through **Azure Front Door**, which provides a single public URL, HTTPS termination, and optional caching. All resources are in **East US2**.
+
+Enterprise security additions (from `infrastructure.yaml`) include:
+
+- **Edge HTTPS/TLS hardening**: HTTPS-only delivery, minimum TLS 1.2, and HSTS.
+- **WAF at Front Door**: OWASP managed rules (prevention mode) to reduce common web threats.
+- **Storage network hardening**: storage origin restricted so it is reachable only via Front Door.
+- **Enterprise logging**: Diagnostic Settings for Front Door traffic and Storage access are
+  routed to a centralized Azure Log Analytics Workspace.
+- **Diagnostic Settings coverage**: Front Door access/health logs, plus Storage read/write/delete
+  access logs, sent to Log Analytics.
 
 The architecture diagram is in **draw.io (diagrams.net)** format: [architecture.xml](./architecture.xml). Open it in [diagrams.net](https://app.diagrams.net/) (File → Open from → Device) to view and edit. Conceptual flow:
 
@@ -95,5 +108,5 @@ tests/                   # Optional lint / smoke tests
 No violations; table left empty.
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| —         | —          | —                                   |
+| --- | --- | --- |
+| — | — | — |

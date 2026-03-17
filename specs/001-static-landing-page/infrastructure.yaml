@@ -5,7 +5,58 @@ resources:
     location: eastus2
     tier: Standard
     replication: LRS
+    # Transport + network hardening for enterprise security
+    https_only: true
+    min_tls_version: "1.2"
+    public_network_access_enabled: false
+    # Ensure the Storage origin is reachable only via Front Door (origin path),
+    # typically implemented with Private Endpoint / Private Link in Terraform.
+    restrict_origin_to_front_door: true
   - name: cdn-flare-prod
     type: azurerm_cdn_frontdoor_profile
     location: eastus2
     sku_name: Standard_AzureFrontDoor
+    # Enterprise HTTPS/TLS hardening at the edge
+    enforce_https_only: true
+    min_tls_version: "1.2"
+    hsts_enabled: true
+    # HSTS max-age should follow your organization policy; default is set to a safe baseline.
+    hsts_max_age_seconds: 31536000
+
+  # Enterprise WAF policy to protect the public landing page
+  - name: fd-waf-policy-flare
+    type: azurerm_cdn_frontdoor_waf_policy
+    location: eastus2
+    waf_policy_name: fd-waf-policy-flare
+    mode: Prevention
+    managed_rule_sets:
+      - type: OWASP
+        version: OWASP_3_2
+
+  # Enterprise logging: centralize Front Door + Storage diagnostics in Log Analytics
+  - name: law-flare-prod
+    type: azurerm_log_analytics_workspace
+    location: eastus2
+    sku: PerGB2018
+    retention_in_days: 30
+
+  - name: fd-diagnostic-settings-to-law
+    type: azurerm_monitor_diagnostic_setting
+    target_resource_name: cdn-flare-prod
+    target_category: frontdoor
+    destination_type: log_analytics_workspace
+    destination_workspace_name: law-flare-prod
+    logs:
+      - name: FrontDoorAccessLog
+      - name: FrontDoorHealthProbeLog
+
+  - name: storage-diagnostic-settings-to-law
+    type: azurerm_monitor_diagnostic_setting
+    target_resource_name: stflareprod001
+    target_category: storage
+    destination_type: log_analytics_workspace
+    destination_workspace_name: law-flare-prod
+    logs:
+      - name: StorageRead
+      - name: StorageWrite
+      - name: StorageDelete
