@@ -8,3 +8,30 @@ components:
   web_hosting: Azure Storage Static Website
   cdn: Azure Front Door
   security: Managed Identity
+security_features:
+  edge_https_tls:
+    enforce_https_only: true
+    min_tls_version: "1.2"
+    hsts_enabled: true
+  frontdoor_waf:
+    policy_type: OWASP Managed Rules
+    mode: Prevention
+  storage_origin_hardening:
+    https_only: true
+    public_network_access_enabled: false
+    restrict_origin_to_front_door: true
+logging_features:
+  log_analytics_workspace:
+    name: law-flare-prod
+    retention_in_days: 30
+  frontdoor_diagnostics:
+    destination: law-flare-prod
+    logs:
+      - FrontDoorAccessLog
+      - FrontDoorHealthProbeLog
+  storage_diagnostics:
+    destination: law-flare-prod
+    logs:
+      - StorageRead
+      - StorageWrite
+      - StorageDelete
