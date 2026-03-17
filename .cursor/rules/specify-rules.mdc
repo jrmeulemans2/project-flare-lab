@@ -1,0 +1,35 @@
+﻿---
+description: Project Development Guidelines
+globs: ["**/*"]
+alwaysApply: true
+---
+# project-flare-demo Development Guidelines
+
+Auto-generated from all feature plans. Last updated: 2026-03-17
+
+## Active Technologies
+
+- HTML5, CSS3, JavaScript (evergreen); no framework required for MVP + None for static content; Terraform for IaC; Azure provider (001-static-landing-page)
+
+## Project Structure
+
+```text
+backend/
+frontend/
+tests/
+```
+
+## Commands
+
+npm test; npm run lint
+
+## Code Style
+
+HTML5, CSS3, JavaScript (evergreen); no framework required for MVP: Follow standard conventions
+
+## Recent Changes
+
+- 001-static-landing-page: Added HTML5, CSS3, JavaScript (evergreen); no framework required for MVP + None for static content; Terraform for IaC; Azure provider
+
+<!-- MANUAL ADDITIONS START -->
+<!-- MANUAL ADDITIONS END -->
