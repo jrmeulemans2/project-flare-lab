@@ -1,0 +1,11 @@
+# All resources in East US2 per constitution (.specify/memory/constitution.md)
+resources:
+  - name: stflareprod001 # Globally unique in Azure
+    type: azurerm_storage_account
+    location: eastus2
+    tier: Standard
+    replication: LRS
+  - name: cdn-flare-prod
+    type: azurerm_cdn_frontdoor_profile
+    location: eastus2
+    sku_name: Standard_AzureFrontDoor
