@@ -31,10 +31,10 @@ resource "azurerm_storage_account" "web" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  # Enterprise security posture
-  enable_https_traffic_only      = true
-  min_tls_version                = "TLS1_2"
-  public_network_access_enabled = false
+  # Enterprise security posture (public data plane must be on for local Terraform blob uploads)
+  enable_https_traffic_only       = true
+  min_tls_version                 = "TLS1_2"
+  public_network_access_enabled   = var.storage_public_network_access_enabled
 
   # Static website settings (files will be uploaded to $web)
   static_website {
@@ -45,20 +45,19 @@ resource "azurerm_storage_account" "web" {
   tags = local.tags
 }
 
-# Create the $web container used by Azure Storage static website.
-resource "azurerm_storage_container" "web_container" {
-  name                  = "$web"
-  storage_account_name  = azurerm_storage_account.web.name
-  container_access_type = "private"
-}
+# The $web container is created automatically when static_website is enabled; do not create it
+# explicitly (avoids 403 and conflicts with the static website feature).
 
 # Sample landing page deployment (Terraform reads the local file at plan/apply time).
 resource "azurerm_storage_blob" "index_html" {
   name                   = "index.html"
-  storage_account_name  = azurerm_storage_account.web.name
-  storage_container_name = azurerm_storage_container.web_container.name
+  storage_account_name   = azurerm_storage_account.web.name
+  storage_container_name = "$web"
   type                   = "Block"
-  source_content      = file("${path.module}/../site/index.html")
+  source_content         = file("${path.module}/../site/index.html")
+  # Without text/html, browsers download the page; Front Door may also serve odd behavior.
+  content_type           = "text/html; charset=utf-8"
+  cache_control          = "public, max-age=300"
 }
 
 #
@@ -97,52 +96,51 @@ resource "azurerm_cdn_frontdoor_origin_group" "origin_group" {
 }
 
 resource "azurerm_cdn_frontdoor_origin" "storage_origin" {
-  name                     = "flare-storage-origin"
+  name                          = "flare-storage-origin"
   cdn_frontdoor_origin_group_id = azurerm_cdn_frontdoor_origin_group.origin_group.id
 
   # NOTE: For static website + public_network_access_enabled=false, you should
   # use Front Door Private Link to reach the Storage Private Endpoint.
   # This sample uses the storage static website endpoint host directly.
-  host_name = azurerm_storage_account.web.primary_web_endpoint
+  # API requires hostname only (no scheme or path).
+  host_name          = trim(trimprefix(azurerm_storage_account.web.primary_web_endpoint, "https://"), "/")
+  origin_host_header = trim(trimprefix(azurerm_storage_account.web.primary_web_endpoint, "https://"), "/")
+  http_port          = 80
+  https_port         = 443
 
-  origin_host_header = azurerm_storage_account.web.primary_web_endpoint
-  http_port  = 80
-  https_port = 443
+  # Required: azurerm 3.x can leave origin disabled without this; routes then fail with
+  # "at least one enabled origin is created under the origin group".
+  enabled  = true
+  priority = 1
+  weight   = 1000
 
-  # Required by the provider schema.
   certificate_name_check_enabled = false
 }
 
 resource "azurerm_cdn_frontdoor_route" "route" {
-  name                  = var.frontdoor_route_name
-  cdn_frontdoor_endpoint_id = azurerm_cdn_frontdoor_endpoint.fd_endpoint.id
+  name                          = var.frontdoor_route_name
+  cdn_frontdoor_endpoint_id     = azurerm_cdn_frontdoor_endpoint.fd_endpoint.id
   cdn_frontdoor_origin_group_id = azurerm_cdn_frontdoor_origin_group.origin_group.id
 
-  forwarding_protocol = "HttpsOnly"
-  patterns_to_match   = ["/*"]
-
+  forwarding_protocol    = "HttpsOnly"
+  patterns_to_match      = ["/*"]
   link_to_default_domain = true
 
-  # Required by the provider schema.
   cdn_frontdoor_origin_ids = [azurerm_cdn_frontdoor_origin.storage_origin.id]
   supported_protocols      = ["Https"]
+  https_redirect_enabled   = false
 }
 
 #
 # Security: WAF policy (sample configuration)
 #
+# WAF policy. managed_rule is only supported with sku Premium_AzureFrontDoor; omitted for Standard.
 resource "azurerm_cdn_frontdoor_firewall_policy" "waf" {
-  name                  = var.frontdoor_waf_policy_name
+  name                 = var.frontdoor_waf_policy_name
   resource_group_name  = azurerm_resource_group.rg.name
-  sku_name              = "Standard_AzureFrontDoor"
+  sku_name             = "Standard_AzureFrontDoor"
 
   mode = "Prevention"
-
-  managed_rule {
-    type    = "DefaultRuleSet"
-    version = "1.0"
-    action  = "Block"
-  }
 }
 
 #
@@ -163,13 +161,13 @@ resource "azurerm_monitor_diagnostic_setting" "frontdoor_to_law" {
   }
 }
 
+# Storage diagnostics: log categories are supported on blob service, not the storage account resource.
 resource "azurerm_monitor_diagnostic_setting" "storage_to_law" {
   name               = "storage-diagnostics-to-law"
-  target_resource_id = azurerm_storage_account.web.id
+  target_resource_id = "${azurerm_storage_account.web.id}/blobServices/default"
 
   log_analytics_workspace_id = azurerm_log_analytics_workspace.law.id
 
-  # NOTE: Verify exact category names for Storage in your provider version.
   enabled_log {
     category = "StorageRead"
   }

@@ -27,7 +27,7 @@ variable "tags" {
 variable "storage_account_name" {
   description = "Storage account name (must be globally unique in Azure)"
   type        = string
-  default     = "stflareprod001"
+  default     = "stflareprodjrmeu2001"
 }
 
 variable "log_analytics_workspace_name" {
@@ -69,7 +69,13 @@ variable "frontdoor_route_name" {
 variable "frontdoor_waf_policy_name" {
   description = "Azure Front Door WAF policy name"
   type        = string
-  default     = "fd-waf-policy-flare"
+  default     = "fdwafpolicyflare001"
+}
+
+variable "storage_public_network_access_enabled" {
+  description = "Allow public network access to the storage data plane. Required for Terraform blob uploads from your machine unless you run apply from a network that can reach a private endpoint."
+  type        = bool
+  default     = true
 }
 
 variable "storage_private_endpoint_enabled" {
