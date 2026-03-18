@@ -1,0 +1,63 @@
+name: Constitution YAML Check
+
+on:
+  pull_request:
+
+jobs:
+  check-specs-solution-yaml:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify specs/solution.yaml exists and region is eastus2
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          shopt -s globstar nullglob
+          solution_files=(specs/**/solution.yaml)
+          shopt -u nullglob
+
+          if [ ${#solution_files[@]} -eq 0 ]; then
+            echo "::error::No specs/*/solution.yaml found. A solution.yaml must exist per feature spec."
+            exit 1
+          fi
+
+          echo "Found solution.yaml files:"
+          printf ' - %s\n' "${solution_files[@]}"
+
+          # YAML lint for syntax/style (fails on invalid YAML).
+          python3 -m pip install --quiet yamllint pyyaml
+          for f in "${solution_files[@]}"; do
+            echo "YAML lint: $f"
+            # Keep lint strict enough to catch invalid YAML, but relax common style rules to
+            # avoid non-constitution formatting failures.
+            yamllint -d "{extends: default, rules: {line-length: {max: 9999}, trailing-spaces: disable}}" "$f"
+          done
+
+          # Region compliance check (constitution II).
+          python3 - <<'PY'
+          import glob, sys, yaml
+          files = sorted(glob.glob('specs/**/solution.yaml', recursive=True))
+          if not files:
+            print('ERROR: No specs/**/solution.yaml found.')
+            sys.exit(1)
+
+          bad = []
+          for path in files:
+            with open(path, 'r', encoding='utf-8') as fh:
+              data = yaml.safe_load(fh)
+            region = (data or {}).get('metadata', {}).get('region')
+            if region != 'eastus2':
+              bad.append((path, region))
+
+          if bad:
+            print('ERROR: Region must be eastus2 for all solution.yaml files.')
+            for path, region in bad:
+              print(f' - {path}: region={region!r}')
+            sys.exit(1)
+
+          print('OK: All solution.yaml files have metadata.region == eastus2')
+          PY
+
