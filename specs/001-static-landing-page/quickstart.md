@@ -25,7 +25,7 @@
    - Ensure subscription and tenant allow creating Storage and Front Door in **East US2**.
 
 2. **Terraform**  
-   - `cd infrastructure/`  
+   - From the repository root: `cd infrastructure/`  
    - `terraform init`  
    - `terraform plan` (review: Storage, Front Door, East US2 only).  
    - `terraform apply` (when ready).
